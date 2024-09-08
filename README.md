@@ -1,0 +1,1 @@
+# cp2024omsk-pmsk
