@@ -217,7 +217,7 @@ const llamaSystemPrompt = `<|user|>
 <|end|>
 <|assistant|>`
 
-type LlamaResponse struct {
+type ReportedRequest struct {
 	NameReport   string `json:"name_report"`
 	DocumentType string `json:"document_type"`
 	Password     string `json:"password"`
@@ -243,6 +243,56 @@ type LlamaResponse struct {
 			End   string `json:"end"`
 		} `json:"audio_times"`
 	} `json:"data"`
+}
+
+type CompletionResp struct {
+	Content            string `json:"content"`
+	GenerationSettings struct {
+		FrequencyPenalty float64       `json:"frequency_penalty"`
+		IgnoreEos        bool          `json:"ignore_eos"`
+		LogitBias        []interface{} `json:"logit_bias"`
+		Mirostat         int           `json:"mirostat"`
+		MirostatEta      float64       `json:"mirostat_eta"`
+		MirostatTau      float64       `json:"mirostat_tau"`
+		Model            string        `json:"model"`
+		NCtx             int           `json:"n_ctx"`
+		NKeep            int           `json:"n_keep"`
+		NPredict         int           `json:"n_predict"`
+		NProbs           int           `json:"n_probs"`
+		PenalizeNl       bool          `json:"penalize_nl"`
+		PresencePenalty  float64       `json:"presence_penalty"`
+		RepeatLastN      int           `json:"repeat_last_n"`
+		RepeatPenalty    float64       `json:"repeat_penalty"`
+		Seed             int64         `json:"seed"`
+		Stop             []interface{} `json:"stop"`
+		Stream           bool          `json:"stream"`
+		Temp             float64       `json:"temp"`
+		TfsZ             float64       `json:"tfs_z"`
+		TopK             int           `json:"top_k"`
+		TopP             float64       `json:"top_p"`
+		TypicalP         float64       `json:"typical_p"`
+	} `json:"generation_settings"`
+	Model        string `json:"model"`
+	Prompt       string `json:"prompt"`
+	Stop         bool   `json:"stop"`
+	StoppedEos   bool   `json:"stopped_eos"`
+	StoppedLimit bool   `json:"stopped_limit"`
+	StoppedWord  bool   `json:"stopped_word"`
+	StoppingWord string `json:"stopping_word"`
+	Timings      struct {
+		PredictedMs         float64     `json:"predicted_ms"`
+		PredictedN          int         `json:"predicted_n"`
+		PredictedPerSecond  float64     `json:"predicted_per_second"`
+		PredictedPerTokenMs float64     `json:"predicted_per_token_ms"`
+		PromptMs            float64     `json:"prompt_ms"`
+		PromptN             int         `json:"prompt_n"`
+		PromptPerSecond     interface{} `json:"prompt_per_second"`
+		PromptPerTokenMs    float64     `json:"prompt_per_token_ms"`
+	} `json:"timings"`
+	TokensCached    int  `json:"tokens_cached"`
+	TokensEvaluated int  `json:"tokens_evaluated"`
+	TokensPredicted int  `json:"tokens_predicted"`
+	Truncated       bool `json:"truncated"`
 }
 
 const TestResponse = `{
@@ -438,15 +488,22 @@ func (bw *BotWrapper) officialReport(ctx context.Context, pgID, chatID int64, re
 		return nil, err
 	}
 
-	var llamaResp LlamaResponse
+	var compResp CompletionResp
 
-	if err := json.Unmarshal([]byte(tr.LlamaOutput.String), &llamaResp); err != nil {
+	if err := json.Unmarshal([]byte(tr.LlamaOutput.String), &compResp); err != nil {
 		bw.log.Error().Err(err).Int64("chatID", chatID).Msg("unmarshal json response failed")
 
 		return nil, err
 	}
 
-	bytesResp, err := json.Marshal(llamaResp)
+	var reportedReq ReportedRequest
+	if err := json.Unmarshal([]byte(compResp.Content), &reportedReq); err != nil {
+		bw.log.Error().Err(err).Int64("chatID", chatID).Msg("unmarshal json response failed")
+
+		return nil, err
+	}
+
+	bytesResp, err := json.Marshal(reportedReq)
 	if err != nil {
 		bw.log.Error().Err(err).Int64("chatID", chatID).Msg("unmarshal json marshal failed")
 
@@ -489,7 +546,7 @@ func (bw *BotWrapper) unofficialReport(ctx context.Context, pgID, chatID int64, 
 		return nil, err
 	}
 
-	var llamaResp LlamaResponse
+	var llamaResp CompletionResp
 
 	if err := json.Unmarshal([]byte(tr.LlamaOutput.String), &llamaResp); err != nil {
 		bw.log.Error().Err(err).Int64("chatID", chatID).Msg("unmarshal json response failed")
