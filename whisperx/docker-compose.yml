@@ -1,0 +1,27 @@
+version: '3'
+
+services:
+  whisperx-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: whisperx-service
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+    container_name: whisperx-container
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - whisperx-models-cache:/root/.cache
+      - whisperx-app-volume:/app
+
+volumes:
+  whisperx-models-cache: 
+  whisperx-app-volume:

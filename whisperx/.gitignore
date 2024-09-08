@@ -1,0 +1,6 @@
+.env
+__pycache__
+*.ipynb
+*.db
+whisperx-app-volume
+whisperx-models-cache

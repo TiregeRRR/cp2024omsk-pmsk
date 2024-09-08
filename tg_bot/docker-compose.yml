@@ -1,0 +1,72 @@
+networks:
+  ukazka-net:
+    driver: bridge
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - 5432:5432
+    restart: always
+    environment:
+      - POSTGRES_PASSWORD=12345678
+      - POSTGRES_USER=psql
+      - POSTGRES_DB=psql
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      BOT_MINIOENDPOINT: minio:9000
+      BOT_MINIOACCESSKEY: admin
+      BOT_MINIOSECRETACCESSKEY: 12345678
+      BOT_POSTGRESUSERNAME: psql
+      BOT_POSTGRESADDRESS: psql:5432
+      BOT_POSTGRESPASSWORD: 12345678
+      BOT_POSTGRESDATABASE: psql
+      BOT_WHISPERADDR: whisperx-service:8004
+      BOT_REPORTERADDR: reporter:8000
+      BOT_LLAMAADDR: llama:8080 
+  minio:
+    network_mode: host
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    restart: always
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: 12345678
+    command: server --console-address ":9001" /data
+  reporter:
+    network_mode: host
+    build:
+      context: ./reports
+      dockerfile: Dockerfile
+    restart: always
+  whisperx-service:
+    network_mode: host
+    build:
+      context: ../whisperx
+      dockerfile: Dockerfile
+    image: whisperx-service
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+    container_name: whisperx-container
+    env_file:
+      - .env
+    ports:
+      - ":8000"
+    volumes:
+      - whisperx-models-cache:/root/.cache
+      - whisperx-app-volume:/app
+  frontend:
+    build:
+      context: ../frontend/
+      dockerfile: Dockerfile
+    restart: always
